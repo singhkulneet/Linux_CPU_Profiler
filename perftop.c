@@ -6,6 +6,8 @@
 #include <linux/hashtable.h>
 #include <linux/slab.h>
 
+// Global Hashtable string to print
+static char procStr[1000] = {0};
 
 // Global Count Variable
 static int count = 0;
@@ -17,6 +19,7 @@ static DEFINE_HASHTABLE(myHash, MY_HASH_BITS);
 // Declaring a structure for each entry in the hash table
 struct hashEntry {
 	int val;
+  int PID;
 	struct hlist_node hash_node;
 };
 
@@ -35,31 +38,52 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   int pid = t->pid;
   struct hashEntry *hashEntryPtr;
   bool found = false;
-  int i = 0;
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
 
-  if(!hash_empty(myHash))
+  if(count > 0)
   {
     hash_for_each(myHash, bkt, curHash, hash_node) {
-      pr_info("The pid is %d and the count is %d\n", bkt, curHash->val);
+      if(curHash->PID == pid)
+      {
+        curHash->val++;
+        found = true;
+        pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
+      }
+    }
+
+    if(!found)
+    {
+      hashEntryPtr = (struct hashEntry *)kmalloc(sizeof(struct hashEntry), GFP_ATOMIC);
+      // Check for errors in allocation
+      if(!hashEntryPtr) {
+        return -ENOMEM;
+      }
+      // Set the value of the entry
+      hashEntryPtr->val = 1;
+      hashEntryPtr->PID = pid;
+      // Add the value to the Hash Table
+      hash_add(myHash, &hashEntryPtr->hash_node, pid);
+      count++;
+      pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
     }
   }
   else
   {
-    hashEntryPtr = (struct hashEntry *)kmalloc(sizeof(struct hashEntry), GFP_KERNEL);
+    hashEntryPtr = (struct hashEntry *)kmalloc(sizeof(struct hashEntry), GFP_ATOMIC);
     // Check for errors in allocation
     if(!hashEntryPtr) {
       return -ENOMEM;
     }
     // Set the value of the entry
     hashEntryPtr->val = 1;
+    hashEntryPtr->PID = pid;
     // Add the value to the Hash Table
     hash_add(myHash, &hashEntryPtr->hash_node, pid);
+    count++;
+    pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
   }
-  
-  pr_info("The pid of the scheduling task is %d.\n", pid);
 
   return 0;
 }
@@ -98,7 +122,15 @@ static void cleanup(void)
 }
 
 static int hello_world_show(struct seq_file *m, void *v) {
-  seq_printf(m, "Hello World\nCount = %d\n", count);
+  // Declaring Hash variables to store temp values
+	int bkt;
+	struct hashEntry * curHash;
+
+  hash_for_each(myHash, bkt, curHash, hash_node) {
+    printk(KERN_CONT "PID:\t%d\tCount:\t%d\n", curHash->PID, curHash->val);
+    sprintf(procStr + strlen(procStr), "PID: %d Count: %d\n", curHash->PID, curHash->val);
+	}
+  seq_printf(m, "%s", procStr);
   return 0;
 }
 
