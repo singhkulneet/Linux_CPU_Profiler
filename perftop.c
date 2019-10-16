@@ -10,7 +10,7 @@
 static char procStr[100] = {0};
 
 // Global Count Variable
-static int count = 0;
+static int initialized = false;
 
 // Hashtable Declarations
 #define MY_HASH_BITS 10
@@ -42,7 +42,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 	int bkt;
 	struct hashEntry * curHash;
 
-  if(count > 0)
+  if(initialized)
   {
     hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
       if(curHash->PID == pid)
@@ -65,7 +65,6 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       hashEntryPtr->PID = pid;
       // Add the value to the Hash Table
       hash_add_rcu(myHash, &hashEntryPtr->hash_node, pid);
-      count++;
       // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
     }
   }
@@ -81,7 +80,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->PID = pid;
     // Add the value to the Hash Table
     hash_add_rcu(myHash, &hashEntryPtr->hash_node, pid);
-    count++;
+    initialized = true;
     // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
   }
 
