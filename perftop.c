@@ -7,7 +7,7 @@
 #include <linux/slab.h>
 
 // Global Hashtable string to printrfgydb
-static char procStr[1000] = {0};
+static char procStr[100] = {0};
 
 // Global Count Variable
 static int count = 0;
@@ -116,7 +116,7 @@ static void cleanup(void)
 	// START: Code to free all entries from hash table
 	// For loop to safely iterate through the entryies while removing
 	hash_for_each_safe(myHash, bkt, temp_hlist, curHash, hash_node) {
-		hash_del(&curHash->hash_node);
+		hash_del_rcu(&curHash->hash_node);
 		kfree(curHash);
 	}
 }
@@ -130,6 +130,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
     sprintf(procStr + strlen(procStr), "PID: %d Count: %d\n", curHash->PID, curHash->val);
 	}
   seq_printf(m, "%s", procStr);
+
   return 0;
 }
 
@@ -146,27 +147,27 @@ static const struct file_operations hello_world_fops = {
 };
 
 static int __init hello_world_init(void) {
-    int ret;
-    proc_create("perftop", 0, NULL, &hello_world_fops);
-    kp.pre_handler = handler_pre;
-    kp.post_handler = handler_post;
-    kp.fault_handler = handler_fault;
+  int ret;
+  kp.pre_handler = handler_pre;
+  kp.post_handler = handler_post;
+  kp.fault_handler = handler_fault;
+  ret = register_kprobe(&kp);
 
-    ret = register_kprobe(&kp);
-    if (ret < 0) {
-        pr_err("register_kprobe failed, returned %d\n", ret);
-        return ret;
-    }
-    pr_info("Planted kprobe at %p\n", kp.addr);
+  if (ret < 0) {
+    pr_err("register_kprobe failed, returned %d\n", ret);
+    return ret;
+  }
+  pr_info("Planted kprobe at %p\n", kp.addr);
 
-    return 0;
+  proc_create("perftop", 0, NULL, &hello_world_fops);
+  return 0;
 }
 
 static void __exit hello_world_exit(void) {
-    unregister_kprobe(&kp);
-    cleanup();
-    remove_proc_entry("perftop", NULL);
-    pr_info("kprobe at %p unregistered\n", kp.addr);
+  unregister_kprobe(&kp);
+  cleanup();
+  remove_proc_entry("perftop", NULL);
+  pr_info("kprobe at %p unregistered\n", kp.addr);
 }
 
 MODULE_LICENSE("GPL");
