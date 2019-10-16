@@ -129,6 +129,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
     sprintf(procStr + strlen(procStr), "PID: %d Count: %d\n", curHash->PID, curHash->val);
 	}
   seq_printf(m, "%s", procStr);
+  procStr = "";
 
   return 0;
 }
