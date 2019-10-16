@@ -49,7 +49,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       {
         curHash->val++;
         found = true;
-        pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
+        // pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
       }
     }
 
@@ -66,7 +66,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       // Add the value to the Hash Table
       hash_add(myHash, &hashEntryPtr->hash_node, pid);
       count++;
-      pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
+      // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
     }
   }
   else
@@ -82,7 +82,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     // Add the value to the Hash Table
     hash_add(myHash, &hashEntryPtr->hash_node, pid);
     count++;
-    pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
+    // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
   }
 
   return 0;
@@ -127,7 +127,6 @@ static int hello_world_show(struct seq_file *m, void *v) {
 	struct hashEntry * curHash;
 
   hash_for_each(myHash, bkt, curHash, hash_node) {
-    printk(KERN_CONT "PID:\t%d\tCount:\t%d\n", curHash->PID, curHash->val);
     sprintf(procStr + strlen(procStr), "PID: %d Count: %d\n", curHash->PID, curHash->val);
 	}
   seq_printf(m, "%s", procStr);
