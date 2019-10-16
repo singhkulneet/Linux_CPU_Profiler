@@ -6,7 +6,7 @@
 #include <linux/hashtable.h>
 #include <linux/slab.h>
 
-// Global Hashtable string to print
+// Global Hashtable string to printrfgydb
 static char procStr[1000] = {0};
 
 // Global Count Variable
@@ -44,7 +44,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
   if(count > 0)
   {
-    hash_for_each(myHash, bkt, curHash, hash_node) {
+    hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
       if(curHash->PID == pid)
       {
         curHash->val++;
@@ -64,7 +64,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       hashEntryPtr->val = 1;
       hashEntryPtr->PID = pid;
       // Add the value to the Hash Table
-      hash_add(myHash, &hashEntryPtr->hash_node, pid);
+      hash_add_rcu(myHash, &hashEntryPtr->hash_node, pid);
       count++;
       // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
     }
@@ -80,7 +80,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->val = 1;
     hashEntryPtr->PID = pid;
     // Add the value to the Hash Table
-    hash_add(myHash, &hashEntryPtr->hash_node, pid);
+    hash_add_rcu(myHash, &hashEntryPtr->hash_node, pid);
     count++;
     // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
   }
@@ -126,7 +126,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
 	int bkt;
 	struct hashEntry * curHash;
 
-  hash_for_each(myHash, bkt, curHash, hash_node) {
+  hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
     sprintf(procStr + strlen(procStr), "PID: %d Count: %d\n", curHash->PID, curHash->val);
 	}
   seq_printf(m, "%s", procStr);
@@ -163,8 +163,8 @@ static int __init hello_world_init(void) {
 }
 
 static void __exit hello_world_exit(void) {
-    cleanup();
     unregister_kprobe(&kp);
+    cleanup();
     remove_proc_entry("perftop", NULL);
     pr_info("kprobe at %p unregistered\n", kp.addr);
 }
