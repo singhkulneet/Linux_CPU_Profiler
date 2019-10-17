@@ -6,8 +6,9 @@
 #include <linux/hashtable.h>
 #include <linux/slab.h>
 
-// Global Hashtable string to printrfgydb
-// static char procStr[] = "";
+// Declaring global spinlock 
+static spinlock_t my_lock = SPIN_LOCK_UNLOCKED;
+
 
 // Global Count Variable
 static int initialized = false;
@@ -42,6 +43,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 	int bkt;
 	struct hashEntry * curHash;
 
+  spin_lock(&my_lock);
   if(initialized)
   {
     hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
@@ -83,7 +85,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     initialized = true;
     // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
   }
-
+  spin_unlock(&my_lock);
   return 0;
 }
 
@@ -114,21 +116,23 @@ static void cleanup(void)
 
 	// START: Code to free all entries from hash table
 	// For loop to safely iterate through the entryies while removing
+  spin_lock(&my_lock);
 	hash_for_each_safe(myHash, bkt, temp_hlist, curHash, hash_node) {
 		hash_del_rcu(&curHash->hash_node);
 		kfree(curHash);
 	}
+  spin_unlock(&my_lock);
 }
 
 static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
-
+  spin_lock(&my_lock);
   hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
     seq_printf(m, "PID: %d Count: %d\n", curHash->PID, curHash->val);
 	}
-
+  spin_unlock(&my_lock);
   return 0;
 }
 
