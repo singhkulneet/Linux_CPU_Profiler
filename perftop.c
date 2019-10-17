@@ -7,7 +7,7 @@
 #include <linux/slab.h>
 
 // Global Hashtable string to printrfgydb
-static char procStr[100] = {0};
+// static char procStr[] = "";
 
 // Global Count Variable
 static int initialized = false;
@@ -126,10 +126,8 @@ static int hello_world_show(struct seq_file *m, void *v) {
 	struct hashEntry * curHash;
 
   hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
-    sprintf(procStr + strlen(procStr), "PID: %d Count: %d\n", curHash->PID, curHash->val);
+    seq_printf(m, "PID: %d Count: %d\n", curHash->PID, curHash->val);
 	}
-  seq_printf(m, "%s", procStr);
-  procStr = "";
 
   return 0;
 }
