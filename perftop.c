@@ -5,9 +5,10 @@
 #include <linux/sched.h>
 #include <linux/hashtable.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 
 // Declaring global spinlock 
-static spinlock_t my_lock = SPIN_LOCK_UNLOCKED;
+DEFINE_SPINLOCK(my_lock);
 
 
 // Global Count Variable
