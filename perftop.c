@@ -10,7 +10,6 @@
 // Declaring global spinlock 
 DEFINE_SPINLOCK(my_lock);
 
-
 // Global Count Variable
 static int initialized = false;
 
