@@ -17,7 +17,7 @@ DEFINE_SPINLOCK(my_lock);
 typedef typeof(&stack_trace_save_user) stack_trace_save_user_fn;
 #define stack_trace_save_user (* (stack_trace_save_user_fn)kallsyms_stack_trace_save_user)
 void *kallsyms_stack_trace_save_user = NULL;
-#define STACK_DEPTH 25
+#define STACK_DEPTH 20
 #define HASH_INIT 10
 
 // Hashtable Declarations
@@ -78,7 +78,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   
 
   hash_for_each(myHash, bkt, curHash, hash_node) {
-    if(curHash->key == keyVal)
+    if(curHash->PID == pid)
     {
       curHash->val++;
       found = true;
