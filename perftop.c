@@ -17,7 +17,7 @@ DEFINE_SPINLOCK(my_lock);
 typedef typeof(&stack_trace_save_user) stack_trace_save_user_fn;
 #define stack_trace_save_user (* (stack_trace_save_user_fn)kallsyms_stack_trace_save_user)
 void *kallsyms_stack_trace_save_user = NULL;
-#define STACK_DEPTH 20
+#define STACK_DEPTH 10
 #define HASH_INIT 10
 
 // Hashtable Declarations
@@ -156,7 +156,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
-  char printBuf[200];
+  char printBuf[100];
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
