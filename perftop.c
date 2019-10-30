@@ -36,8 +36,8 @@ struct hashEntry {
   char comm[16];
   unsigned int numEntries;
   bool kernel;
-	struct hlist_node hash_node;
   unsigned long long runTime;
+  struct hlist_node hash_node;
 };
 
 // Kprobe Declarations
