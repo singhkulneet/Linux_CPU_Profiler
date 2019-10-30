@@ -11,7 +11,8 @@ obj-m += $(MODULE).o
 ## [M3: point 1]
 #  Explain following in here
 #  ...
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+#KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+KERNELDIR ?= ~/script/linux
 
 ## [M4: point 1]
 #  Explain following in here

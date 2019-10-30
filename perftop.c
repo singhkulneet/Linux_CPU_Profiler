@@ -8,7 +8,10 @@
 #include <linux/spinlock.h>
 #include <linux/stacktrace.h>
 #include <linux/jhash.h>
+#include <asm/msr.h>
 
+// Global time to keep track of time
+static long long prevTime = 0;
 
 // Declaring global spinlock 
 DEFINE_SPINLOCK(my_lock);
@@ -34,6 +37,7 @@ struct hashEntry {
   unsigned int numEntries;
   bool kernel;
 	struct hlist_node hash_node;
+  unsigned long long runTime;
 };
 
 // Kprobe Declarations
@@ -60,28 +64,42 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   unsigned long store[STACK_DEPTH];
   unsigned int entries;
   unsigned int keyVal;
+  unsigned long long curTime = rdtsc();
+  unsigned long long difTime = 0;
+
+  if(prevTime != 0)
+  {
+    difTime = curTime - prevTime;
+  }
+  else 
+  {
+    prevTime = curTime;
+  }
 
   spin_lock(&my_lock);
   if(t->mm == NULL)
   {
     kernelTask = true;
-    entries = stack_trace_save(store, STACK_DEPTH-1, 0);
+    entries = stack_trace_save(store, STACK_DEPTH, 0);
   }
   else 
   {
-    entries = stack_trace_save_user(store, STACK_DEPTH-1);
+    entries = stack_trace_save_user(store, STACK_DEPTH);
   }
 
   // store[STACK_DEPTH-1] = (unsigned long)pid;
 
   keyVal = jhash(store, STACK_DEPTH, HASH_INIT);
 
+
+
   hash_for_each(myHash, bkt, curHash, hash_node) {
     if(curHash->key == keyVal)
     {
       curHash->val++;
+      curHash->runTime = curHash->runTime + difTime;
       found = true;
-      pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
+      // pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
     }
   }
 
@@ -98,6 +116,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->key = keyVal;
     hashEntryPtr->numEntries = entries;
     hashEntryPtr->kernel = kernelTask;
+    hashEntryPtr->runTime = difTime;
 
     for(i = 0; i < 16; i++)
     {
@@ -130,7 +149,7 @@ static void handler_post(struct kprobe *p, struct pt_regs *regs, unsigned long f
  */
 static int handler_fault(struct kprobe *p, struct pt_regs *regs, int trapnr)
 {
-	pr_info("fault_handler: p->addr = 0x%p, trap #%dn", p->addr, trapnr);
+	// pr_info("fault_handler: p->addr = 0x%p, trap #%dn", p->addr, trapnr);
 	/* Return 0 because we don't handle the fault. */
 	return 0;
 }
@@ -160,7 +179,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
-    seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, printBuf);
+    seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\nRuntime: %llu\n%s\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, curHash->runTime, printBuf);
 	}
   spin_unlock(&my_lock);
   return 0;
@@ -192,7 +211,7 @@ static int __init hello_world_init(void) {
     pr_err("register_kprobe failed, returned %d\n", ret);
     return ret;
   }
-  pr_info("Planted kprobe at %p\n", kp.addr);
+  // pr_info("Planted kprobe at %p\n", kp.addr);
 
   proc_create("perftop", 0, NULL, &hello_world_fops);
   return 0;
@@ -202,7 +221,7 @@ static void __exit hello_world_exit(void) {
   unregister_kprobe(&kp);
   remove_proc_entry("perftop", NULL);
   cleanup();
-  pr_info("kprobe at %p unregistered\n", kp.addr);
+  // pr_info("kprobe at %p unregistered\n", kp.addr);
 }
 
 MODULE_LICENSE("GPL");
