@@ -17,7 +17,7 @@ DEFINE_SPINLOCK(my_lock);
 typedef typeof(&stack_trace_save_user) stack_trace_save_user_fn;
 #define stack_trace_save_user (* (stack_trace_save_user_fn)kallsyms_stack_trace_save_user)
 void *kallsyms_stack_trace_save_user = NULL;
-#define STACK_DEPTH 24
+#define STACK_DEPTH 33
 #define HASH_INIT 10
 
 // Hashtable Declarations
