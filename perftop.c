@@ -76,7 +76,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
   spin_lock(&my_lock);
 
-  hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
+  hash_for_each(myHash, bkt, curHash, hash_node) {
     if(curHash->key == keyVal)
     {
       curHash->val++;
@@ -108,7 +108,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       hashEntryPtr->stack_trace[i] = store[i];
     }
     // Add the value to the Hash Table
-    hash_add_rcu(myHash, &hashEntryPtr->hash_node, keyVal);
+    hash_add(myHash, &hashEntryPtr->hash_node, keyVal);
     // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
   }
   
@@ -145,7 +145,7 @@ static void cleanup(void)
 	// For loop to safely iterate through the entryies while removing
   spin_lock(&my_lock);
 	hash_for_each_safe(myHash, bkt, temp_hlist, curHash, hash_node) {
-		hash_del_rcu(&curHash->hash_node);
+		hash_del(&curHash->hash_node);
 		kfree(curHash);
 	}
   spin_unlock(&my_lock);
@@ -157,7 +157,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
 	struct hashEntry * curHash;
   char printBuf[100];
   spin_lock(&my_lock);
-  hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
+  hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
     seq_printf(m, "Command: %s PID: %d Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->val, printBuf);
 	}
