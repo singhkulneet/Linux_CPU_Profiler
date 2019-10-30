@@ -20,7 +20,7 @@ DEFINE_SPINLOCK(my_lock);
 typedef typeof(&stack_trace_save_user) stack_trace_save_user_fn;
 #define stack_trace_save_user (* (stack_trace_save_user_fn)kallsyms_stack_trace_save_user)
 void *kallsyms_stack_trace_save_user = NULL;
-#define STACK_DEPTH 10
+#define STACK_DEPTH 24
 #define HASH_INIT 10
 
 // Hashtable Declarations
@@ -80,14 +80,14 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   if(t->mm == NULL)
   {
     kernelTask = true;
-    entries = stack_trace_save(store, STACK_DEPTH, 0);
+    entries = stack_trace_save(store, STACK_DEPTH-1, 0);
   }
   else 
   {
-    entries = stack_trace_save_user(store, STACK_DEPTH);
+    entries = stack_trace_save_user(store, STACK_DEPTH-1);
   }
 
-  // store[STACK_DEPTH-1] = (unsigned long)pid;
+  store[STACK_DEPTH-1] = (unsigned long)pid;
 
   keyVal = jhash(store, STACK_DEPTH, HASH_INIT);
 
@@ -118,15 +118,16 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->kernel = kernelTask;
     hashEntryPtr->runTime = difTime;
 
+    for(i = 0; i < STACK_DEPTH-1; i++)
+    {
+      hashEntryPtr->stack_trace[i] = store[i];
+    }
+
     for(i = 0; i < 16; i++)
     {
       hashEntryPtr->comm[i] = t->comm[i];
     }
 
-    for(i = 0; i < STACK_DEPTH; i++)
-    {
-      hashEntryPtr->stack_trace[i] = store[i];
-    }
     // Add the value to the Hash Table
     hash_add(myHash, &hashEntryPtr->hash_node, keyVal);
     // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
@@ -175,10 +176,10 @@ static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
-  char printBuf[100];
+  char printBuf[250];
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
-    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
+    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 2);
     seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\nRuntime: %llu\n%s\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, curHash->runTime, printBuf);
 	}
   spin_unlock(&my_lock);
