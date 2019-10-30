@@ -156,7 +156,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
-  char printBuf[100];
+  char printBuf[200];
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
