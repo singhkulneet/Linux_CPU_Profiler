@@ -72,7 +72,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     entries = stack_trace_save_user(store, STACK_DEPTH-1);
   }
 
-  store[STACK_DEPTH-1] = (unsigned long)pid;
+  // store[STACK_DEPTH-1] = (unsigned long)pid;
 
   keyVal = jhash(store, STACK_DEPTH, HASH_INIT);
 
@@ -160,7 +160,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
-    seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\n%s%u\n\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, printBuf, curHash->key);
+    seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, printBuf);
 	}
   spin_unlock(&my_lock);
   return 0;
