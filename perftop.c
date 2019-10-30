@@ -46,7 +46,6 @@ static struct kprobe kp = {
 /* kprobe pre_handler: called just before the probed instruction is executed */
 static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
-  spin_lock(&my_lock);
   struct task_struct *t = (struct task_struct *) regs->si;
   unsigned int pid = t->pid;
   struct hashEntry *hashEntryPtr;
@@ -61,6 +60,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   unsigned int entries;
   u32 keyVal;
 
+  spin_lock(&my_lock);
   if(t->mm == NULL)
   {
     kernelTask = true;
