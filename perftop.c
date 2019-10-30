@@ -26,7 +26,7 @@ static DEFINE_HASHTABLE(myHash, MY_HASH_BITS);
 
 // Declaring a structure for each entry in the hash table
 struct hashEntry {
-  u32 key;
+  unsigned int key;
   int val;
   unsigned int PID;
   unsigned long stack_trace[STACK_DEPTH];
@@ -59,7 +59,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   // Variables to handle new stack traces
   unsigned long store[STACK_DEPTH];
   unsigned int entries;
-  u32 keyVal;
+  unsigned int keyVal;
 
   spin_lock(&my_lock);
   if(t->mm == NULL)
@@ -76,14 +76,12 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
   keyVal = jhash(store, STACK_DEPTH, HASH_INIT);
 
-  
-
   hash_for_each(myHash, bkt, curHash, hash_node) {
-    if(curHash->PID == pid)
+    if(curHash->key == keyVal)
     {
       curHash->val++;
       found = true;
-      // pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
+      pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
     }
   }
 
@@ -162,7 +160,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
-    seq_printf(m, "Command: %s PID: %d Kernel: %d Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->kernel, curHash->val, printBuf);
+    seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, printBuf);
 	}
   spin_unlock(&my_lock);
   return 0;
