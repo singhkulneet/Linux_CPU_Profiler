@@ -9,6 +9,7 @@
 #include <linux/stacktrace.h>
 #include <linux/jhash.h>
 
+
 // Declaring global spinlock 
 DEFINE_SPINLOCK(my_lock);
 
@@ -29,6 +30,7 @@ struct hashEntry {
   int val;
   unsigned int PID;
   unsigned long stack_trace[STACK_DEPTH];
+  char comm[16];
   unsigned int numEntries;
 	struct hlist_node hash_node;
 };
@@ -46,6 +48,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
   struct task_struct *t = (struct task_struct *) regs->si;
   unsigned int pid = t->pid;
+  // char buf[16]; 
   struct hashEntry *hashEntryPtr;
   bool found = false;
   // Declaring Hash variables to store temp values
@@ -95,6 +98,12 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->PID = pid;
     hashEntryPtr->key = keyVal;
     hashEntryPtr->numEntries = entries;
+
+    for(i = 0; i < 16; i++)
+    {
+      hashEntryPtr->comm[i] = t->comm[i];
+    }
+
     for(i = 0; i < STACK_DEPTH; i++)
     {
       hashEntryPtr->stack_trace[i] = store[i];
@@ -147,11 +156,11 @@ static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
-  char printBuf[MAX_SYMBOL_LEN] = {0};
+  char printBuf[100];
   spin_lock(&my_lock);
   hash_for_each_rcu(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
-    seq_printf(m, "PID: %d Count: %d\n%s\n", curHash->PID, curHash->val, printBuf);
+    seq_printf(m, "Command: %s PID: %d Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->val, printBuf);
 	}
   spin_unlock(&my_lock);
   return 0;
