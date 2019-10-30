@@ -17,7 +17,7 @@ DEFINE_SPINLOCK(my_lock);
 typedef typeof(&stack_trace_save_user) stack_trace_save_user_fn;
 #define stack_trace_save_user (* (stack_trace_save_user_fn)kallsyms_stack_trace_save_user)
 void *kallsyms_stack_trace_save_user = NULL;
-#define STACK_DEPTH 33
+#define STACK_DEPTH 25
 #define HASH_INIT 10
 
 // Hashtable Declarations
@@ -48,7 +48,6 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
   struct task_struct *t = (struct task_struct *) regs->si;
   unsigned int pid = t->pid;
-  // char buf[16]; 
   struct hashEntry *hashEntryPtr;
   bool found = false;
   // Declaring Hash variables to store temp values
