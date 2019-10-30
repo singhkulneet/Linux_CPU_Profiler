@@ -32,6 +32,7 @@ struct hashEntry {
   unsigned long stack_trace[STACK_DEPTH];
   char comm[16];
   unsigned int numEntries;
+  bool kernel;
 	struct hlist_node hash_node;
 };
 
@@ -98,6 +99,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->PID = pid;
     hashEntryPtr->key = keyVal;
     hashEntryPtr->numEntries = entries;
+    hashEntryPtr->kernel = kernelTask;
 
     for(i = 0; i < 16; i++)
     {
@@ -160,7 +162,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 4);
-    seq_printf(m, "Command: %s PID: %d Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->val, printBuf);
+    seq_printf(m, "Command: %s PID: %d Kernel: %d Count: %d\n%s\n", curHash->comm, curHash->PID, curHash->kernel, curHash->val, printBuf);
 	}
   spin_unlock(&my_lock);
   return 0;
