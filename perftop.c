@@ -46,6 +46,7 @@ static struct kprobe kp = {
 /* kprobe pre_handler: called just before the probed instruction is executed */
 static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
+  spin_lock(&my_lock);
   struct task_struct *t = (struct task_struct *) regs->si;
   unsigned int pid = t->pid;
   struct hashEntry *hashEntryPtr;
@@ -74,7 +75,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
   keyVal = jhash(store, STACK_DEPTH, HASH_INIT);
 
-  spin_lock(&my_lock);
+  
 
   hash_for_each(myHash, bkt, curHash, hash_node) {
     if(curHash->key == keyVal)
@@ -199,8 +200,8 @@ static int __init hello_world_init(void) {
 
 static void __exit hello_world_exit(void) {
   unregister_kprobe(&kp);
-  cleanup();
   remove_proc_entry("perftop", NULL);
+  cleanup();
   pr_info("kprobe at %p unregistered\n", kp.addr);
 }
 
