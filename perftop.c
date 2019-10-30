@@ -55,21 +55,17 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   int i;
   // Variables to handle new stack traces
   unsigned long store[STACK_DEPTH];
+  unsigned int entries;
   u32 keyVal;
 
   if(t->mm == NULL)
   {
     kernelTask = true;
-    hashEntryPtr->numEntries = stack_trace_save(hashEntryPtr->stack_trace, STACK_DEPTH-1, 0);
+    entries = stack_trace_save(store, STACK_DEPTH-1, 0);
   }
   else 
   {
-    hashEntryPtr->numEntries = stack_trace_save_user(hashEntryPtr->stack_trace, STACK_DEPTH-1);
-  }
-
-  for(i = 0; i < STACK_DEPTH; i++)
-  {
-    store[i] = hashEntryPtr->stack_trace[i];
+    entries = stack_trace_save_user(store, STACK_DEPTH-1);
   }
 
   store[STACK_DEPTH-1] = (unsigned long)pid;
@@ -98,6 +94,11 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->val = 1;
     hashEntryPtr->PID = pid;
     hashEntryPtr->key = keyVal;
+    hashEntryPtr->numEntries = entries;
+    for(i = 0; i < STACK_DEPTH; i++)
+    {
+      hashEntryPtr->stack_trace[i] = store[i];
+    }
     // Add the value to the Hash Table
     hash_add_rcu(myHash, &hashEntryPtr->hash_node, keyVal);
     // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
