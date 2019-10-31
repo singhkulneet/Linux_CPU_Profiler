@@ -9,6 +9,7 @@
 #include <linux/stacktrace.h>
 #include <linux/jhash.h>
 #include <asm/msr.h>
+#include <linux/rbtree.h>
 
 // Global time to keep track of time
 static long long prevTime = 0;
@@ -27,6 +28,9 @@ void *kallsyms_stack_trace_save_user = NULL;
 #define MY_HASH_BITS 10
 static DEFINE_HASHTABLE(myHash, MY_HASH_BITS);
 
+// Declaring a rbtree root node
+static struct rb_root myTree = RB_ROOT;
+
 // Declaring a structure for each entry in the hash table
 struct hashEntry {
   unsigned int key;
@@ -39,6 +43,66 @@ struct hashEntry {
   unsigned long long runTime;
   struct hlist_node hash_node;
 };
+
+struct rb_type {
+  unsigned int key;
+  int val;
+  unsigned int PID;
+  unsigned long stack_trace[STACK_DEPTH];
+  char comm[16];
+  unsigned int numEntries;
+  bool kernel;
+  unsigned long long runTime;
+	struct rb_node node;
+};
+
+// Function to insert a new node into the red black tree
+static int insertRB(struct rb_root *root, struct rb_type *data) 
+{
+	struct rb_node **link = &(root->rb_node);
+	struct rb_node *parent = NULL;
+	struct rb_type *entry;
+
+	/* Traverse the rbtree to find the right place to insert */
+	while (*link) {
+		parent = *link;
+		entry = rb_entry(parent, struct rb_type, node);
+		if (data->runTime < entry->runTime) {
+			link = &parent->rb_left;
+		} 
+		else if(data->runTime < entry->runTime) {
+			link = &parent->rb_right;
+		}
+    else {
+      pr_info("ERROR: tried to add duplicate entry to rbtree");
+      return -1;
+    }
+	}
+	/* Insert a new node */
+	rb_link_node(&data->node, parent, link);
+	/* Re-balance the rbtree if necessary */
+	rb_insert_color(&data->node, root);
+
+  return 0;
+}
+
+struct rb_type *my_search(struct rb_root *root, unsigned long long time)
+{
+  struct rb_node *node = root->rb_node;
+
+  while (node) {
+    struct rb_type *data = container_of(node, struct rb_type, node);
+    int result;
+
+    if (time < data->runTime)
+      node = node->rb_left;
+    else if (time < data->runTime)
+      node = node->rb_right;
+    else
+      return data;
+  }
+  return NULL;
+}
 
 // Kprobe Declarations
 #define MAX_SYMBOL_LEN	64
@@ -54,6 +118,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   struct task_struct *t = (struct task_struct *) regs->si;
   unsigned int pid = t->pid;
   struct hashEntry *hashEntryPtr;
+  struct rb_entry *rbEntryPtr;
   bool found = false;
   // Declaring Hash variables to store temp values
 	int bkt;
@@ -97,15 +162,26 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     if(curHash->key == keyVal)
     {
       curHash->val++;
+      
+      // Handling existing tasks in rbtree and updating
+      rbEntryPtr = mysearch(&mytree, curHash->runTime);
+      if (rbEntryPtr) {
+        rb_erase(&rbEntryPtr->node, &mytree);
+      }
+      rbEntryPtr->runtime = rbEntryPtr->runtime + difTime;
+      rbEntryPtr->val++;
+      insertRB(myTree, rbEntryPtr);
+
       curHash->runTime = curHash->runTime + difTime;
       found = true;
-      // pr_info("Updated pid is %d and count is %d.\n", curHash->PID, curHash->val);
     }
   }
 
   if(!found)
   {
     hashEntryPtr = (struct hashEntry *)kmalloc(sizeof(struct hashEntry), GFP_ATOMIC);
+    rbEntryPtr = (struct rb_entry *)kmalloc(sizeof(struct rb_entry), GFP_ATOMIC);
+
     // Check for errors in allocation
     if(!hashEntryPtr) {
       return -ENOMEM;
@@ -117,20 +193,30 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->numEntries = entries;
     hashEntryPtr->kernel = kernelTask;
     hashEntryPtr->runTime = difTime;
+    // Set the values for rbtree
+    rbEntryPtr->val = 1;
+    rbEntryPtr->PID = pid;
+    rbEntryPtr->key = keyVal;
+    rbEntryPtr->numEntries = entries;
+    rbEntryPtr->kernel = kernelTask;
+    rbEntryPtr->runTime = difTime;
 
     for(i = 0; i < STACK_DEPTH-1; i++)
     {
       hashEntryPtr->stack_trace[i] = store[i];
+      rbEntryPtr->stack_trace[i] = store[i];
     }
 
     for(i = 0; i < 16; i++)
     {
       hashEntryPtr->comm[i] = t->comm[i];
+      rbEntryPtr->comm[i] = t->comm[i];
     }
 
     // Add the value to the Hash Table
     hash_add(myHash, &hashEntryPtr->hash_node, keyVal);
-    // pr_info("The new pid is %d and count is %d.\n", hashEntryPtr->PID, hashEntryPtr->val);
+    // Add entry to rbtree
+    insertRB(myTree, rbEntryPtr);
   }
   
   spin_unlock(&my_lock);
@@ -162,12 +248,22 @@ static void cleanup(void)
 	struct hlist_node *temp_hlist;
 	int bkt;
 
+  // Declaring variables for removing rbtree entries
+  struct rb_type *cur_rbNode;
+	struct rb_type *next_rbNode;
+
 	// START: Code to free all entries from hash table
 	// For loop to safely iterate through the entryies while removing
   spin_lock(&my_lock);
 	hash_for_each_safe(myHash, bkt, temp_hlist, curHash, hash_node) {
 		hash_del(&curHash->hash_node);
 		kfree(curHash);
+	}
+
+  // For loop to safely iterate through the entries of rbtree while removing (in reverse order)
+	rbtree_postorder_for_each_entry_safe(cur_rbNode, next_rbNode, &myTree, node) {
+		rb_erase(&myTree, cur_rbNode);
+		kfree(cur_rbNode);
 	}
   spin_unlock(&my_lock);
 }
@@ -176,13 +272,34 @@ static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
+  struct rb_type *cur_rbNode;
+	struct rb_type *next_rbNode;
   char printBuf[250];
+  int i = 0;
+
   spin_lock(&my_lock);
-  hash_for_each(myHash, bkt, curHash, hash_node) {
-    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 2);
+  // hash_for_each(myHash, bkt, curHash, hash_node) {
+  //   stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 2);
+  //   seq_printf(m, "PID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
+  //       curHash->PID, curHash->val, curHash->comm, curHash->runTime, curHash->kernel ? "True" : "False", printBuf);
+	// }
+
+  rbtree_postorder_for_each_entry_safe(cur_rbNode, next_rbNode, &myTree, node) {
+		if(i >= 20)
+    {
+      goto end;
+    }
+
+    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, cur_rbNode->stack_trace, cur_rbNode->numEntries, 2);
     seq_printf(m, "PID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
-        curHash->PID, curHash->val, curHash->comm, curHash->runTime, curHash->kernel ? "True" : "False", printBuf);
+        cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False", printBuf);
+
+    i++;
 	}
+
+  // Jump label
+  end:
+
   spin_unlock(&my_lock);
   return 0;
 }
