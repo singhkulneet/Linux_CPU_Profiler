@@ -92,7 +92,6 @@ struct rb_type *my_search(struct rb_root *root, unsigned long long time)
 
   while (node) {
     struct rb_type *data = container_of(node, struct rb_type, node);
-    int result;
 
     if (time < data->runTime)
       node = node->rb_left;
@@ -118,7 +117,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   struct task_struct *t = (struct task_struct *) regs->si;
   unsigned int pid = t->pid;
   struct hashEntry *hashEntryPtr;
-  struct rb_entry *rbEntryPtr;
+  struct rb_type *rbEntryPtr;
   bool found = false;
   // Declaring Hash variables to store temp values
 	int bkt;
@@ -164,13 +163,13 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       curHash->val++;
       
       // Handling existing tasks in rbtree and updating
-      rbEntryPtr = mysearch(&mytree, curHash->runTime);
+      rbEntryPtr = my_search(&myTree, curHash->runTime);
       if (rbEntryPtr) {
-        rb_erase(&rbEntryPtr->node, &mytree);
+        rb_erase(&rbEntryPtr->node, &myTree);
       }
-      rbEntryPtr->runtime = rbEntryPtr->runtime + difTime;
+      rbEntryPtr->runTime = rbEntryPtr->runTime + difTime;
       rbEntryPtr->val++;
-      insertRB(myTree, rbEntryPtr);
+      insertRB(&myTree, rbEntryPtr);
 
       curHash->runTime = curHash->runTime + difTime;
       found = true;
@@ -180,7 +179,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   if(!found)
   {
     hashEntryPtr = (struct hashEntry *)kmalloc(sizeof(struct hashEntry), GFP_ATOMIC);
-    rbEntryPtr = (struct rb_entry *)kmalloc(sizeof(struct rb_entry), GFP_ATOMIC);
+    rbEntryPtr = (struct rb_type *)kmalloc(sizeof(struct rb_type), GFP_ATOMIC);
 
     // Check for errors in allocation
     if(!hashEntryPtr) {
@@ -216,7 +215,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     // Add the value to the Hash Table
     hash_add(myHash, &hashEntryPtr->hash_node, keyVal);
     // Add entry to rbtree
-    insertRB(myTree, rbEntryPtr);
+    insertRB(&myTree, rbEntryPtr);
   }
   
   spin_unlock(&my_lock);
@@ -262,7 +261,7 @@ static void cleanup(void)
 
   // For loop to safely iterate through the entries of rbtree while removing (in reverse order)
 	rbtree_postorder_for_each_entry_safe(cur_rbNode, next_rbNode, &myTree, node) {
-		rb_erase(&myTree, cur_rbNode);
+		rb_erase(&cur_rbNode->node, &myTree);
 		kfree(cur_rbNode);
 	}
   spin_unlock(&my_lock);
@@ -270,8 +269,8 @@ static void cleanup(void)
 
 static int hello_world_show(struct seq_file *m, void *v) {
   // Declaring Hash variables to store temp values
-	int bkt;
-	struct hashEntry * curHash;
+	// int bkt;
+	// struct hashEntry * curHash;
   struct rb_type *cur_rbNode;
 	struct rb_type *next_rbNode;
   char printBuf[250];
