@@ -180,7 +180,8 @@ static int hello_world_show(struct seq_file *m, void *v) {
   spin_lock(&my_lock);
   hash_for_each(myHash, bkt, curHash, hash_node) {
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 2);
-    seq_printf(m, "Command: %s PID: %d Kernel: %s Count: %d\nRuntime: %llu\n%s\n", curHash->comm, curHash->PID, curHash->kernel ? "True" : "False", curHash->val, curHash->runTime, printBuf);
+    seq_printf(m, "PID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
+        curHash->PID, curHash->val, curHash->comm, curHash->runTime, curHash->kernel ? "True" : "False", printBuf);
 	}
   spin_unlock(&my_lock);
   return 0;
