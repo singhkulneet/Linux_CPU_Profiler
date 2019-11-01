@@ -11,8 +11,8 @@ obj-m += $(MODULE).o
 ## [M3: point 1]
 #  Explain following in here
 #  ...
-#KERNELDIR ?= /lib/modules/$(shell uname -r)/build
-KERNELDIR ?= ~/script/linux
+KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+#KERNELDIR ?= ~/script/linux
 
 ## [M4: point 1]
 #  Explain following in here
@@ -23,7 +23,6 @@ PWD := $(shell pwd)
 #  Explain following in here
 #  ...
 all: $(MODULE)
-
 
 ## [M6: point 1]
 #  Explain following in here
@@ -43,3 +42,5 @@ $(MODULE):
 #  ...
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+
+# ccflags-y := -O0 -g
