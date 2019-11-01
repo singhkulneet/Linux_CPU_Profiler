@@ -271,9 +271,10 @@ static int hello_world_show(struct seq_file *m, void *v) {
 	// int bkt;
 	// struct hashEntry * curHash;
   struct rb_type *cur_rbNode;
-	struct rb_type *next_rbNode;
+  struct rb_node *node;
+	// struct rb_type *next_rbNode;
   char printBuf[250];
-  int i = 0;
+  int i = 1;
 
   spin_lock(&my_lock);
   // hash_for_each(myHash, bkt, curHash, hash_node) {
@@ -282,15 +283,17 @@ static int hello_world_show(struct seq_file *m, void *v) {
   //       curHash->PID, curHash->val, curHash->comm, curHash->runTime, curHash->kernel ? "True" : "False", printBuf);
 	// }
 
-  rbtree_postorder_for_each_entry_safe(cur_rbNode, next_rbNode, &myTree, node) {
-		if(i >= 20)
+  // rbtree_postorder_for_each_entry_safe(cur_rbNode, next_rbNode, &myTree, node) {
+  for (node = rb_first(&myTree); node; node = rb_next(node)) {
+    cur_rbNode = rb_entry(node, struct rb_type, node);
+		if(i >= 21)
     {
       goto end;
     }
 
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, cur_rbNode->stack_trace, cur_rbNode->numEntries, 2);
-    seq_printf(m, "PID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
-        cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False", printBuf);
+    seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
+        i, cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False", printBuf);
 
     i++;
 	}
