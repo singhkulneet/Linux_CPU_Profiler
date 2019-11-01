@@ -155,8 +155,6 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
   keyVal = jhash(store, STACK_DEPTH, HASH_INIT);
 
-
-
   hash_for_each(myHash, bkt, curHash, hash_node) {
     if(curHash->key == keyVal)
     {
@@ -166,11 +164,11 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       rbEntryPtr = my_search(&myTree, curHash->runTime);
       if (rbEntryPtr) {
         rb_erase(&rbEntryPtr->node, &myTree);
+        rbEntryPtr->runTime = rbEntryPtr->runTime + difTime;
+        rbEntryPtr->val++;
+        insertRB(&myTree, rbEntryPtr);
       }
-      rbEntryPtr->runTime = rbEntryPtr->runTime + difTime;
-      rbEntryPtr->val++;
-      insertRB(&myTree, rbEntryPtr);
-
+      
       curHash->runTime = curHash->runTime + difTime;
       found = true;
     }
