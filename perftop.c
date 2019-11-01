@@ -70,13 +70,13 @@ static int insertRB(struct rb_root *root, struct rb_type *data)
 		if (data->runTime < entry->runTime) {
 			link = &parent->rb_left;
 		} 
-		else if(data->runTime < entry->runTime) {
+		else { // if(data->runTime < entry->runTime) {
 			link = &parent->rb_right;
 		}
-    else {
-      pr_info("ERROR: tried to add duplicate entry to rbtree");
-      return -1;
-    }
+    // else {
+    //   pr_info("ERROR: tried to add duplicate entry to rbtree");
+    //   return -1;
+    // }
 	}
 	/* Insert a new node */
 	rb_link_node(&data->node, parent, link);
@@ -169,6 +169,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
         insertRB(&myTree, rbEntryPtr);
       }
       
+
       curHash->runTime = curHash->runTime + difTime;
       found = true;
     }
