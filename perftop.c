@@ -118,7 +118,10 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   unsigned int pid = t->pid;
   struct hashEntry *hashEntryPtr;
   struct rb_type *rbEntryPtr;
+  struct rb_type *cur_rbEntry;
+  struct rb_node *node;
   bool found = false;
+  bool found2 = false;
   // Declaring Hash variables to store temp values
 	int bkt;
 	struct hashEntry * curHash;
@@ -159,25 +162,25 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     if(curHash->key == keyVal)
     {
       curHash->val++;
-      
-      // Handling existing tasks in rbtree and updating
-      rbEntryPtr = my_search(&myTree, curHash->runTime);
-      if (rbEntryPtr) {
-        rb_erase(&rbEntryPtr->node, &myTree);
-        rbEntryPtr->runTime = rbEntryPtr->runTime + difTime;
-        rbEntryPtr->val++;
-        insertRB(&myTree, rbEntryPtr);
-      }
-      
       curHash->runTime = curHash->runTime + difTime;
       found = true;
+    }
+  }
+
+  for (node = rb_first(&myTree); node; node = rb_next(node)) {
+    cur_rbEntry = rb_entry(node, struct rb_type, node);
+    if (cur_rbEntry->key == keyVal) {
+      rb_erase(&cur_rbEntry->node, &myTree);
+      cur_rbEntry->runTime = cur_rbEntry->runTime + difTime;
+      cur_rbEntry->val++;
+      insertRB(&myTree, cur_rbEntry);
+      found2 = true;
     }
   }
 
   if(!found)
   {
     hashEntryPtr = (struct hashEntry *)kmalloc(sizeof(struct hashEntry), GFP_ATOMIC);
-    rbEntryPtr = (struct rb_type *)kmalloc(sizeof(struct rb_type), GFP_ATOMIC);
 
     // Check for errors in allocation
     if(!hashEntryPtr) {
@@ -190,6 +193,25 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     hashEntryPtr->numEntries = entries;
     hashEntryPtr->kernel = kernelTask;
     hashEntryPtr->runTime = difTime;
+
+    for(i = 0; i < STACK_DEPTH-1; i++)
+    {
+      hashEntryPtr->stack_trace[i] = store[i];
+    }
+
+    for(i = 0; i < 16; i++)
+    {
+      hashEntryPtr->comm[i] = t->comm[i];
+    }
+
+    // Add the value to the Hash Table
+    hash_add(myHash, &hashEntryPtr->hash_node, keyVal);
+  }
+
+  if(!found2)
+  {
+    rbEntryPtr = (struct rb_type *)kmalloc(sizeof(struct rb_type), GFP_ATOMIC);
+
     // Set the values for rbtree
     rbEntryPtr->val = 1;
     rbEntryPtr->PID = pid;
@@ -200,22 +222,18 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
     for(i = 0; i < STACK_DEPTH-1; i++)
     {
-      hashEntryPtr->stack_trace[i] = store[i];
       rbEntryPtr->stack_trace[i] = store[i];
     }
 
     for(i = 0; i < 16; i++)
     {
-      hashEntryPtr->comm[i] = t->comm[i];
       rbEntryPtr->comm[i] = t->comm[i];
     }
 
-    // Add the value to the Hash Table
-    hash_add(myHash, &hashEntryPtr->hash_node, keyVal);
     // Add entry to rbtree
     insertRB(&myTree, rbEntryPtr);
   }
-  
+
   spin_unlock(&my_lock);
   return 0;
 }
@@ -287,7 +305,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
     cur_rbNode = rb_entry(node, struct rb_type, node);
 		if(i >= 21)
     {
-      goto end;
+      goto END;
     }
 
     stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, cur_rbNode->stack_trace, cur_rbNode->numEntries, 2);
@@ -298,8 +316,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
 	}
 
   // Jump label
-  end:
-
+END:
   spin_unlock(&my_lock);
   return 0;
 }
