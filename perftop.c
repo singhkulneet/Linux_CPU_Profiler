@@ -10,7 +10,6 @@
 #include <linux/jhash.h>
 #include <asm/msr.h>
 #include <linux/rbtree.h>
-#include <linux/kallsyms.h>
 
 // Global time to keep track of time
 static long long prevTime = 0;
@@ -169,6 +168,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
         rbEntryPtr->val++;
         insertRB(&myTree, rbEntryPtr);
       }
+      
 
       curHash->runTime = curHash->runTime + difTime;
       found = true;
@@ -274,10 +274,7 @@ static int hello_world_show(struct seq_file *m, void *v) {
   struct rb_node *node;
 	// struct rb_type *next_rbNode;
   char printBuf[250];
-  // char * printBuf2;
   int i = 1;
-  int y = 0;
-  // int valid;
 
   spin_lock(&my_lock);
   // hash_for_each(myHash, bkt, curHash, hash_node) {
@@ -294,25 +291,9 @@ static int hello_world_show(struct seq_file *m, void *v) {
       goto end;
     }
 
-    if(cur_rbNode->kernel) {
-      stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, cur_rbNode->stack_trace, cur_rbNode->numEntries, 0);
-      seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
-          i, cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False", printBuf);
-    }
-    else {
-      seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n", 
-          i, cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False");
-
-      for(y = 0; y < cur_rbNode->numEntries; y++)
-      {
-        kallsyms_lookup(cur_rbNode->stack_trace[y], NULL, NULL, NULL, printBuf);
-        // if(valid) {
-          seq_printf(m, "%s\n", printBuf);
-        // }
-      }
-    }
-
-    seq_printf(m, "\n");
+    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, cur_rbNode->stack_trace, cur_rbNode->numEntries, 2);
+    seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
+        i, cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False", printBuf);
 
     i++;
 	}
