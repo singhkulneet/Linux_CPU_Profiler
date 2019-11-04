@@ -274,9 +274,10 @@ static int hello_world_show(struct seq_file *m, void *v) {
   struct rb_node *node;
 	// struct rb_type *next_rbNode;
   char printBuf[250];
+  // char * printBuf2;
   int i = 1;
   int y = 0;
-  int valid;
+  // int valid;
 
   spin_lock(&my_lock);
   // hash_for_each(myHash, bkt, curHash, hash_node) {
@@ -304,10 +305,10 @@ static int hello_world_show(struct seq_file *m, void *v) {
 
       for(y = 0; y < cur_rbNode->numEntries; y++)
       {
-        valid = sprint_symbol(printBuf, cur_rbNode->stack_trace[y]);
-        if(valid) {
+        kallsyms_lookup(cur_rbNode->stack_trace[y], NULL, NULL, NULL, printBuf);
+        // if(valid) {
           seq_printf(m, "%s\n", printBuf);
-        }
+        // }
       }
     }
 
