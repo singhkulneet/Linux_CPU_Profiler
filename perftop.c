@@ -295,12 +295,12 @@ static void cleanup(void)
 static void printEntry(struct seq_file *m, struct rb_type * entry)
 {
   // buffer for populating stack traces
-  char printBuf[250];
+  char printBuf[512];
 
   // Printing recursivly according to traversal
   if(printCount < 21)
   {
-    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, entry->stack_trace, entry->numEntries, 2);
+    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, entry->stack_trace, entry->numEntries, 1);
     seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
         printCount, entry->PID, entry->val, entry->comm, entry->runTime, entry->kernel ? "True" : "False", printBuf);
     printCount++;
