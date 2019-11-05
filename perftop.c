@@ -14,6 +14,8 @@
 // Global time to keep track of time
 static long long prevTime = 0;
 
+static int printCount = 0;
+
 // Declaring global spinlock 
 DEFINE_SPINLOCK(my_lock);
 
@@ -70,13 +72,13 @@ static int insertRB(struct rb_root *root, struct rb_type *data)
 		if (data->runTime < entry->runTime) {
 			link = &parent->rb_left;
 		} 
-		else if(data->runTime < entry->runTime) {
+    else { // if(data->runTime < entry->runTime) {
 			link = &parent->rb_right;
 		}
-    else {
-      pr_info("ERROR: tried to add duplicate entry to rbtree");
-      return -1;
-    }
+    // else {
+    //   pr_info("ERROR: tried to add duplicate entry to rbtree");
+    //   return -1;
+    // }
 	}
 	/* Insert a new node */
 	rb_link_node(&data->node, parent, link);
@@ -147,11 +149,11 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   if(t->mm == NULL)
   {
     kernelTask = true;
-    entries = stack_trace_save(store, STACK_DEPTH-1, 0);
+    entries = stack_trace_save(store, STACK_DEPTH-2, 0);
   }
   else 
   {
-    entries = stack_trace_save_user(store, STACK_DEPTH-1);
+    entries = stack_trace_save_user(store, STACK_DEPTH-2);
   }
 
   store[STACK_DEPTH-1] = (unsigned long)pid;
@@ -164,6 +166,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       curHash->val++;
       curHash->runTime = curHash->runTime + difTime;
       found = true;
+      // break;
     }
   }
 
@@ -175,6 +178,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
       cur_rbEntry->val++;
       insertRB(&myTree, cur_rbEntry);
       found2 = true;
+      // break;
     }
   }
 
@@ -186,6 +190,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     if(!hashEntryPtr) {
       return -ENOMEM;
     }
+
     // Set the value of the entry
     hashEntryPtr->val = 1;
     hashEntryPtr->PID = pid;
@@ -211,6 +216,10 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
   if(!found2)
   {
     rbEntryPtr = (struct rb_type *)kmalloc(sizeof(struct rb_type), GFP_ATOMIC);
+
+    if(!rbEntryPtr) {
+      return -ENOMEM;
+    }
 
     // Set the values for rbtree
     rbEntryPtr->val = 1;
@@ -283,41 +292,52 @@ static void cleanup(void)
   spin_unlock(&my_lock);
 }
 
-static int hello_world_show(struct seq_file *m, void *v) {
-  // Declaring Hash variables to store temp values
-	// int bkt;
-	// struct hashEntry * curHash;
-  struct rb_type *cur_rbNode;
-  struct rb_node *node;
-	// struct rb_type *next_rbNode;
+static void printEntry(struct seq_file *m, struct rb_type * entry)
+{
+  // buffer for populating stack traces
   char printBuf[250];
-  int i = 1;
+
+  // Printing recursivly according to traversal
+  if(printCount < 21)
+  {
+    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, entry->stack_trace, entry->numEntries, 2);
+    seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
+        printCount, entry->PID, entry->val, entry->comm, entry->runTime, entry->kernel ? "True" : "False", printBuf);
+    printCount++;
+  }
+
+  // Printing extra newline for kernel stack traces
+  if(entry->kernel){
+    seq_printf(m, "\n");
+  }
+}
+
+// Recursive tree traversal
+static void in_order_print(struct rb_node * curNode, struct seq_file *m) 
+{
+  if(curNode == NULL)
+  {
+    return;
+  }
+
+  in_order_print(curNode->rb_right, m);
+
+  printEntry(m, rb_entry(curNode, struct rb_type, node));
+
+  in_order_print(curNode->rb_left, m);
+}
+
+static int hello_world_show(struct seq_file *m, void *v) {
+  struct rb_node *root;
 
   spin_lock(&my_lock);
-  // hash_for_each(myHash, bkt, curHash, hash_node) {
-  //   stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, curHash->stack_trace, curHash->numEntries, 2);
-  //   seq_printf(m, "PID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
-  //       curHash->PID, curHash->val, curHash->comm, curHash->runTime, curHash->kernel ? "True" : "False", printBuf);
-	// }
+  
+  printCount = 1;
+  root = myTree.rb_node;
+  in_order_print(root, m);
 
-  // rbtree_postorder_for_each_entry_safe(cur_rbNode, next_rbNode, &myTree, node) {
-  for (node = rb_first(&myTree); node; node = rb_next(node)) {
-    cur_rbNode = rb_entry(node, struct rb_type, node);
-		if(i >= 21)
-    {
-      goto END;
-    }
-
-    stack_trace_snprint(printBuf, MAX_SYMBOL_LEN, cur_rbNode->stack_trace, cur_rbNode->numEntries, 2);
-    seq_printf(m, "Task: %d\nPID: %d\nCount: %d\nCommand: %s\nAccumulative time: %llu\nKernel Task: %s\nStack_Trace\\/\n%s\n", 
-        i, cur_rbNode->PID, cur_rbNode->val, cur_rbNode->comm, cur_rbNode->runTime, cur_rbNode->kernel ? "True" : "False", printBuf);
-
-    i++;
-	}
-
-  // Jump label
-END:
   spin_unlock(&my_lock);
+
   return 0;
 }
 
